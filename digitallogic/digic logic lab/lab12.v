@@ -1,9 +1,31 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 2024/11/26 18:06:23
+// Design Name: 
+// Module Name: breath_led_top
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
 module breath_led_top(
     input clk,
     input rst_n,
-    output led
+    output led,
+    output clk_out
 );
-    wire clk_out;
+  
 
     counter counter1 (
         .clk(clk),
@@ -33,13 +55,12 @@ module breath_led_control(
             led <= ~led;
         end
     end
-   
 endmodule
 
 module counter (
     input clk,
     input rst_n,
-    output reg clk_out
+    output  clk_out
 );
     reg [13:0] cnt_first;
     reg [13:0] cnt_second;
@@ -47,14 +68,14 @@ module counter (
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             cnt_first <= 14'b0;
-            clk_out <= 1'b0;
+          
         end
-        else if (cnt_first == 14'd10000) begin
+        else if (cnt_first == 14'd10) begin
             cnt_first <= 14'b0;
-            clk_out <= ~clk_out;
+        
         end
         else begin
-            cnt_first <= cnt_first + 1;
+            cnt_first <= cnt_first + 1'b1;
         end
     end
 
@@ -62,13 +83,20 @@ module counter (
         if (!rst_n) begin
             cnt_second <= 14'b0;
         end
-        else if (cnt_first == 14'd10000) begin
-            if (cnt_second == 14'd10000) begin
+        else if (cnt_second == 14'd10) begin
+           
                 cnt_second <= 14'b0;
-            end
-            else begin
+                end
+         
+            else  if (cnt_first==14'd10)begin
                 cnt_second <= cnt_second + 1;
             end
-        end
-    end
+            else
+            cnt_second<=cnt_second;
+            end
+          
+           
+      
+    assign clk_out=cnt_second==14'd10;
 endmodule
+
