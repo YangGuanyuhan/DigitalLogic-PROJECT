@@ -5,6 +5,7 @@ module exhaust_function (
     input level1_key,           // 1档按键
     input level2_key,           // 2档按键
     input level3_key,           // 3档按键（飓风模式）
+    input is_on,                // 抽油烟机开机状态信号，高电平表示开机
     output reg [1:0] mode,      // 当前工作模式（00：待机，01：1档，10：2档，11：3档飓风）
     output reg [15:0] runtime,  // 抽油烟机累积工作时间（单位秒）
     output reg [7:0] countdown, // 倒计时输出（用于飓风模式或返回待机模式）
@@ -39,54 +40,60 @@ module exhaust_function (
 
     // 状态切换逻辑
     always @(*) begin
-        case (current_mode)
-            IDLE: begin
-                if (level1_key)
-                    next_mode = LEVEL1;
-                else if (level2_key)
-                    next_mode = LEVEL2;
-                else if (level3_key && !level3_used)
-                    next_mode = LEVEL3;
-                else
-                    next_mode = IDLE;
-            end
+        if (!is_on) begin
+            // 如果关机，强制进入待机模式
+            next_mode = IDLE;
+        end else begin
+            // 正常的状态切换逻辑
+            case (current_mode)
+                IDLE: begin
+                    if (level1_key)
+                        next_mode = LEVEL1;
+                    else if (level2_key)
+                        next_mode = LEVEL2;
+                    else if (level3_key && !level3_used)
+                        next_mode = LEVEL3;
+                    else
+                        next_mode = IDLE;
+                end
 
-            LEVEL1: begin
-                if (menu_key)
-                    next_mode = IDLE;
-                else if (level2_key)
-                    next_mode = LEVEL2;
-                else
-                    next_mode = LEVEL1;
-            end
+                LEVEL1: begin
+                    if (menu_key)
+                        next_mode = IDLE;
+                    else if (level2_key)
+                        next_mode = LEVEL2;
+                    else
+                        next_mode = LEVEL1;
+                end
 
-            LEVEL2: begin
-                if (menu_key)
-                    next_mode = IDLE;
-                else if (level1_key)
-                    next_mode = LEVEL1;
-                else
-                    next_mode = LEVEL2;
-            end
+                LEVEL2: begin
+                    if (menu_key)
+                        next_mode = IDLE;
+                    else if (level1_key)
+                        next_mode = LEVEL1;
+                    else
+                        next_mode = LEVEL2;
+                end
 
-            LEVEL3: begin
-                if (level3_timer == 0)
-                    next_mode = LEVEL2; // 飓风倒计时结束后切换到二档
-                else if (menu_key)
-                    next_mode = RETURN_IDLE; // 强制返回待机模式倒计时
-                else
-                    next_mode = LEVEL3;
-            end
+                LEVEL3: begin
+                    if (level3_timer == 0)
+                        next_mode = LEVEL2; // 飓风倒计时结束后切换到二档
+                    else if (menu_key)
+                        next_mode = RETURN_IDLE; // 强制返回待机模式倒计时
+                    else
+                        next_mode = LEVEL3;
+                end
 
-            RETURN_IDLE: begin
-                if (return_idle_timer == 0)
-                    next_mode = IDLE; // 倒计时结束后进入待机模式
-                else
-                    next_mode = RETURN_IDLE;
-            end
+                RETURN_IDLE: begin
+                    if (return_idle_timer == 0)
+                        next_mode = IDLE; // 倒计时结束后进入待机模式
+                    else
+                        next_mode = RETURN_IDLE;
+                end
 
-            default: next_mode = IDLE; // 默认回到待机
-        endcase
+                default: next_mode = IDLE; // 默认回到待机
+            endcase
+        end
     end
 
     // 逻辑实现

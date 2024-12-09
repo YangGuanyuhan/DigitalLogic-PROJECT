@@ -2,85 +2,100 @@ module self_clean(
     input clk,           // 时钟信号，驱动逻辑电路运行
     input rst,           // 全局复位信号，置高时模块复位到初始状态
     input start_clean,   // 开始自清洁信号，用于触发自清洁模式
+    input is_on,         // 抽油烟机开机状态信号，高电平表示开机
     output reg cleaning, // 自清洁状态指示，高电平表示正在进行自清洁
     output reg [7:0] countdown, // 倒计时显示的信号（格式为 MMSS，分钟和秒）
     output reg done      // 自清洁完成信号，高电平脉冲表示自清洁结束
 );
 
-    // 状态定义（使用 parameter 来表示不同状态）
-    parameter IDLE      = 2'b00; // 空闲状态，等待开始自清洁的指令
-    parameter START     = 2'b01; // 开始状态，用于进入自清洁模式
-    parameter CLEANING  = 2'b10; // 自清洁状态，倒计时运行中
-    parameter DONE      = 2'b11; // 完成状态，自清洁结束并返回空闲状态
+    // 状态定义
+    parameter IDLE      = 2'b00; // 空闲状态
+    parameter CHECK     = 2'b01; // 检查 `start_clean` 持续信号状态
+    parameter CLEANING  = 2'b10; // 自清洁状态
+    parameter DONE      = 2'b11; // 自清洁完成
 
     // 状态寄存器
-    reg [1:0] state, next_state; // `state` 保存当前状态，`next_state` 保存下一个状态
+    reg [1:0] state, next_state;
+
+    // 持续信号检测计数器
+    reg [2:0] start_count; // 计数 3 个时钟周期（约 3 秒）
 
     // 倒计时计数器（以秒为单位）
-    reg [7:0] timer; // 用于记录剩余的倒计时时间，从初始值递减到0
+    reg [7:0] timer;
 
     // 状态机逻辑
     always @(posedge clk or posedge rst) begin
         if (rst)
-            state <= IDLE; // 复位时状态切换到初始状态（空闲）
+            state <= IDLE; // 复位时切换到空闲状态
         else
-            state <= next_state; // 正常情况下切换到下一个状态
+            state <= next_state;
     end
 
-    // 状态切换条件逻辑（组合逻辑）
+    // 状态切换条件逻辑
     always @(*) begin
         case (state)
             IDLE: 
-                if (start_clean) // 检测到开始信号时切换到 START 状态
-                    next_state = START;
+                if (is_on && start_clean) 
+                    next_state = CHECK; // 检测 `start_clean` 持续状态
                 else
-                    next_state = IDLE; // 否则保持在空闲状态
+                    next_state = IDLE;
 
-            START: 
-                next_state = CLEANING; // 进入清洁模式
+            CHECK: 
+                if (start_count >= 3) // 检测到信号持续 3 秒
+                    next_state = CLEANING;
+                else if (!start_clean) // 信号中断返回空闲状态
+                    next_state = IDLE;
+                else
+                    next_state = CHECK;
 
             CLEANING: 
-                if (timer == 0) // 倒计时结束后切换到 DONE 状态
-                    next_state = DONE;
+                if (timer == 0)
+                    next_state = DONE; // 倒计时结束切换到完成状态
                 else
-                    next_state = CLEANING; // 否则保持在清洁状态
+                    next_state = CLEANING;
 
             DONE: 
-                next_state = IDLE; // 完成后返回空闲状态
+                next_state = IDLE; // 返回空闲状态
 
             default: 
-                next_state = IDLE; // 任何未定义情况都回到空闲状态
+                next_state = IDLE;
         endcase
     end
 
-    // 自清洁逻辑（时序逻辑）
+    // 自清洁逻辑
     always @(posedge clk or posedge rst) begin
         if (rst) begin
-            cleaning <= 0;        // 复位时清洁状态指示为关闭
-            done <= 0;           // 复位时完成信号为低电平
-            timer <= 8'd0;       // 复位时倒计时为 0
-            countdown <= 8'd0;   // 复位时倒计时显示清零
+            cleaning <= 0;
+            done <= 0;
+            timer <= 8'd0;
+            countdown <= 8'd0;
+            start_count <= 3'd0; // 持续信号计数清零
         end else begin
             case (state)
                 IDLE: begin
-                    cleaning <= 0;        // 空闲状态不进行清洁
-                    done <= 0;           // 未完成任何清洁任务
-                    timer <= 8'd180;     // 初始化倒计时为 3 分钟（180 秒）
+                    cleaning <= 0;
+                    done <= 0;
+                    timer <= 8'd180; // 初始化倒计时为 180 秒
+                    start_count <= 3'd0; // 复位持续信号计数
                 end
 
-                START: begin
-                    cleaning <= 1;        // 开始自清洁状态
+                CHECK: begin
+                    if (start_clean)
+                        start_count <= start_count + 1; // 每秒计数
+                    else
+                        start_count <= 3'd0; // 信号中断，计数清零
                 end
 
                 CLEANING: begin
-                    if (timer > 0)       // 如果倒计时未结束
-                        timer <= timer - 1; // 每个时钟周期倒计时减1秒
-                    countdown <= {timer / 60, timer % 60}; // 将剩余时间转换为 MMSS 格式
+                    cleaning <= 1;
+                    if (timer > 0)
+                        timer <= timer - 1; // 倒计时减一
+                    countdown <= {timer / 60, timer % 60}; // 转换为 MMSS 格式
                 end
 
                 DONE: begin
-                    done <= 1;           // 自清洁完成信号置高
-                    cleaning <= 0;       // 清洁状态指示关闭
+                    done <= 1;
+                    cleaning <= 0;
                 end
             endcase
         end

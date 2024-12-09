@@ -10,7 +10,6 @@ module scan_seg(
 reg clkout;             // Clock output after division
 reg [31:0] cnt;         // Counter for clock division
 reg [2:0] scan_cnt;     // Scan counter
-reg [2:0] scan_ent;     // Tube select signal
 
 // Parameter for clock division period (500KHz stable)
 parameter period = 200000;  // You can adjust this value for different frequencies
@@ -20,7 +19,7 @@ always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         cnt <= 0;
         clkout <= 0;
-    end else if (cnt == period - 1) begin
+    end else if (cnt == (period>>2) - 1) begin
         clkout <= ~clkout;
         cnt <= 0;
     end else begin
@@ -54,17 +53,20 @@ always @(scan_cnt) begin
     endcase
 end
 
+wire [7:0] useless1, useless2;  // Unused wires for 7-segment display outputs
+
+
 // Instantiate 7-segment display drivers for each tube
 light_7seg_egol u0(
-    .in_data({1'b0, scan_ent}),
+    .in_data({1'b0, scan_cnt}),
     .seg_out(seg_out0),
-    .seg_en()  // Unused, already controlled by seg_en
+    .seg_en(useless1)  // Unused, already controlled by seg_en
 );
 
 light_7seg_egol u1(
-    .in_data({1'b0, scan_ent}),
+    .in_data({1'b0, scan_cnt}),
     .seg_out(seg_out1),
-    .seg_en()  // Unused, already controlled by seg_en
+    .seg_en(useless2)  // Unused, already controlled by seg_en
 );
 
 endmodule
