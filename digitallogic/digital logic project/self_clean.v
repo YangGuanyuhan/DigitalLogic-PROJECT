@@ -90,7 +90,7 @@ module self_clean(
                     cleaning <= 1;
                     if (timer > 0)
                         timer <= timer - 1; // 倒计时减一
-                    countdown <= {timer / 60, timer % 60}; // 转换为 MMSS 格式
+                    countdown <= timer; // 更新倒计时显示
                 end
 
                 DONE: begin

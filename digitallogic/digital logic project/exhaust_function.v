@@ -7,9 +7,9 @@ module exhaust_function (
     input level3_key,           // 3档按键（飓风模式）
     input is_on,                // 抽油烟机开机状态信号，高电平表示开机
     output reg [1:0] mode,      // 当前工作模式（00：待机，01：1档，10：2档，11：3档飓风）
-    output reg [15:0] runtime,  // 抽油烟机累积工作时间（单位秒）
     output reg [7:0] countdown, // 倒计时输出（用于飓风模式或返回待机模式）
-    output reg busy             // 工作状态指示（0：空闲，1：正在工作）
+    output reg busy,            // 工作状态指示（0：空闲，1：正在工作）
+    output reg countdown_active // 倒计时激活标志（高电平表示处于 LEVEL3 或 RETURN_IDLE 且倒计时有效）
 );
 
     // 状态定义（统一为 3 位宽）
@@ -20,7 +20,6 @@ module exhaust_function (
     parameter RETURN_IDLE = 3'b100; // 强制返回待机模式倒计时状态
 
     reg [2:0] current_mode, next_mode; // 当前模式和下一模式（3 位宽）
-    reg [15:0] level_runtime;          // 每档累积计时
     reg [7:0] level3_timer;            // 飓风模式倒计时计数器
     reg [7:0] return_idle_timer;       // 返回待机模式倒计时计数器
     reg level3_used;                   // 飓风模式是否已使用标志位
@@ -29,10 +28,10 @@ module exhaust_function (
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             current_mode <= IDLE;          // 复位时回到待机模式
-            level_runtime <= 16'd0;       // 累积时间清零
             level3_timer <= 8'd0;         // 飓风倒计时清零
             return_idle_timer <= 8'd0;    // 返回待机倒计时清零
             level3_used <= 1'b0;          // 飓风模式未使用
+            countdown_active <= 1'b0;     // 倒计时未激活
         end else begin
             current_mode <= next_mode;    // 更新到下一个状态
         end
@@ -99,26 +98,27 @@ module exhaust_function (
     // 逻辑实现
     always @(posedge clk or posedge rst) begin
         if (rst) begin
-            runtime <= 16'd0;          // 总运行时间清零
             countdown <= 8'd0;        // 倒计时清零
             busy <= 1'b0;             // 空闲状态
             mode <= IDLE[1:0];        // 初始化模式
+            countdown_active <= 1'b0; // 倒计时未激活
         end else begin
             mode <= current_mode[1:0]; // 将当前模式的低两位赋值给 mode
             case (current_mode)
                 IDLE: begin
                     busy <= 1'b0;      // 待机状态
                     countdown <= 8'd0; // 无倒计时
+                    countdown_active <= 1'b0; // 倒计时未激活
                 end
 
                 LEVEL1: begin
                     busy <= 1'b1;      // 进入一级档位
-                    runtime <= runtime + 1; // 累积计时
+                    countdown_active <= 1'b0; // 倒计时未激活
                 end
 
                 LEVEL2: begin
                     busy <= 1'b1;      // 进入二级档位
-                    runtime <= runtime + 1; // 累积计时
+                    countdown_active <= 1'b0; // 倒计时未激活
                 end
 
                 LEVEL3: begin
@@ -128,6 +128,7 @@ module exhaust_function (
                     else
                         level3_used <= 1'b1; // 标记飓风模式已用
                     countdown <= level3_timer; // 更新倒计时输出
+                    countdown_active <= 1'b1; // 倒计时激活
                 end
 
                 RETURN_IDLE: begin
@@ -135,6 +136,7 @@ module exhaust_function (
                     if (return_idle_timer > 0)
                         return_idle_timer <= return_idle_timer - 1; // 倒计时
                     countdown <= return_idle_timer; // 更新倒计时输出
+                    countdown_active <= 1'b1; // 倒计时激活
                 end
             endcase
         end
