@@ -11,6 +11,11 @@ module exhaust_function (
     output reg busy,            // 工作状态指示（0：空闲，1：正在工作）
     output reg countdown_active // 倒计时激活标志（高电平表示处于 LEVEL3 或 RETURN_IDLE 且倒计时有效）
 );
+/*
+1.添加了countdown_active输出，高电平用于指示倒计时有效，既可以使用我的countdown输出作为倒计时
+2.删除了runtime
+3.如果busy为1，表示正在工作，你们的那一边可以根据这个统计工作时间
+*/
 
     // 状态定义（统一为 3 位宽）
     parameter IDLE        = 3'b000; // 待机模式
@@ -132,7 +137,7 @@ module exhaust_function (
                 end
 
                 RETURN_IDLE: begin
-                    busy <= 1'b0; // 在倒计时期间不工作
+                    busy <= 1'b1; // 在倒计时期间不工作
                     if (return_idle_timer > 0)
                         return_idle_timer <= return_idle_timer - 1; // 倒计时
                     countdown <= return_idle_timer; // 更新倒计时输出
