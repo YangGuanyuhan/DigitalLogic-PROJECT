@@ -29,6 +29,14 @@ module self_clean(
     // 检测 is_on 上升沿
     wire is_on_rising = is_on && !is_on_prev;
 
+    // 时钟信号
+    wire clock;
+    clk_one_second cos(
+        .clk(clk),
+        .reset(~rst),
+        .clock(clock) // 一秒一个上升沿
+    );
+
     // 1. 状态转移逻辑（组合逻辑）
     always @(*) begin
         case (state)
@@ -60,13 +68,13 @@ module self_clean(
         endcase
     end
 
-    // 2. 输出逻辑（时序逻辑）
-    always @(posedge clk or posedge rst) begin
+    // 2. 状态寄存器更新（时序逻辑）
+    always @(posedge clock or posedge rst) begin
         if (rst) begin
             state <= IDLE;      // 复位时切换到空闲状态
             is_on_prev <= 1'b0; // 初始化 is_on_prev
             start_count <= 3'd0; // 持续信号计数清零
-            timer <= 8'd18;    // 倒计时计数器设置为 180 秒
+            timer <= 8'd180;   // 倒计时计数器设置为 180 秒
             cleaning <= 0;      // 复位时自清洁状态清零
             done <= 0;          // 复位时完成信号清零
             countdown <= 8'd0;  // 复位时倒计时显示清零
@@ -77,7 +85,7 @@ module self_clean(
     end
 
     // 3. 时序逻辑（计数器更新）
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clock or posedge rst) begin
         if (rst) begin
             cleaning <= 0;           // 复位时自清洁状态清零
             done <= 0;               // 复位时完成信号清零

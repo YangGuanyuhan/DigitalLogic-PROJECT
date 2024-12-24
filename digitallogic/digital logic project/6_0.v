@@ -1,3 +1,4 @@
+
 module exhaust_function (
     input clk,                  // 时钟信号
     input rst,                  // 全局复位信号
@@ -65,6 +66,7 @@ always @(posedge clk or posedge rst) begin
         init_state <= 1'b0;
         current_mode <= IDLE;          // 复位时回到待机模式
         level3_used <= 1'b0;          // 飓风模式未使用
+        countdown_active <= 1'b0;     // 倒计时未激活
     end
     else if (is_on_rising) begin
         init_state <= 1'b1;
@@ -73,6 +75,7 @@ always @(posedge clk or posedge rst) begin
             init_state <= 1'b0;
             current_mode <= IDLE;
             level3_used <= 1'b0;
+            countdown_active <= 1'b0;
             power_on_init <= 1'b1;
    end 
    else if (power_on_init_done)  // 需要添加一个完成信号
